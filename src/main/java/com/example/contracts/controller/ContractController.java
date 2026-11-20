@@ -62,7 +62,7 @@ public class ContractController {
     }
 
     @PostMapping("/{id}/ask")
-    public ResponseEntity> askQuestion(
+    public ResponseEntity<Map<String, Object>> askQuestion(
             @PathVariable Long id,
             @RequestBody Map<String, String> payload
     ) {
@@ -72,12 +72,12 @@ public class ContractController {
     }
 
     @ExceptionHandler(NoSuchElementException.class)
-    public ResponseEntity> handleNotFound(NoSuchElementException ex) {
+    public ResponseEntity<Map<String, String>> handleNotFound(NoSuchElementException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
     }
 
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
-    public ResponseEntity> handleBadRequest(RuntimeException ex) {
+    public ResponseEntity<Map<String, String>> handleBadRequest(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
     }
 }
