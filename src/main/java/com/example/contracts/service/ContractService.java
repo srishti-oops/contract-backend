@@ -23,7 +23,7 @@ public class ContractService {
     }
 
     @Transactional
-    public Contract createContract(String title, MultipartFile file) throws IOException {
+    public Contract createContract(String title, String contractDescription, MultipartFile file) throws IOException {
         String extractedText = documentParserService.extractText(file);
         if (extractedText.isBlank()) {
             throw new IllegalArgumentException("Could not extract any readable text from the document.");
@@ -31,6 +31,9 @@ public class ContractService {
 
         Contract contract = new Contract();
         contract.setTitle((title != null && !title.isBlank()) ? title.trim() : file.getOriginalFilename());
+        contract.setContractDescription(
+                (contractDescription != null && !contractDescription.isBlank()) ? contractDescription.trim() : null
+        );
         contract.setFileName(file.getOriginalFilename());
         contract.setContentType(file.getContentType() != null ? file.getContentType() : "application/octet-stream");
         contract.setStatus(ContractStatus.DRAFT);

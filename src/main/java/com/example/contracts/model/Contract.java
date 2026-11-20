@@ -14,6 +14,9 @@ public class Contract {
     @Column(nullable = false)
     private String title;
 
+    @Column(name = "contract_description", length = 1000)
+    private String contractDescription;
+
     @Column(nullable = false)
     private String fileName;
 
@@ -54,6 +57,9 @@ public class Contract {
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
+
+    public String getContractDescription() { return contractDescription; }
+    public void setContractDescription(String contractDescription) { this.contractDescription = contractDescription; }
 
     public String getFileName() { return fileName; }
     public void setFileName(String fileName) { this.fileName = fileName; }

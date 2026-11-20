@@ -30,9 +30,10 @@ public class ContractController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Contract> uploadContract(
             @RequestParam(value = "title", required = false) String title,
+            @RequestParam(value = "contractDescription", required = false) String contractDescription,
             @RequestParam("file") MultipartFile file
     ) throws IOException {
-        Contract created = contractService.createContract(title, file);
+        Contract created = contractService.createContract(title, contractDescription, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -61,7 +62,7 @@ public class ContractController {
     }
 
     @PostMapping("/{id}/ask")
-    public ResponseEntity<Map<String, Object>> askQuestion(
+    public ResponseEntity> askQuestion(
             @PathVariable Long id,
             @RequestBody Map<String, String> payload
     ) {
@@ -71,12 +72,12 @@ public class ContractController {
     }
 
     @ExceptionHandler(NoSuchElementException.class)
-    public ResponseEntity<Map<String, String>> handleNotFound(NoSuchElementException ex) {
+    public ResponseEntity> handleNotFound(NoSuchElementException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
     }
 
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
-    public ResponseEntity<Map<String, String>> handleBadRequest(RuntimeException ex) {
+    public ResponseEntity> handleBadRequest(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
     }
 }
