@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contract Management</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; color: #1f2937; }
+    h1, h2 { margin-bottom: 8px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+    label { display: block; font-weight: 600; margin-top: 12px; margin-bottom: 4px; }
+    input, textarea, button { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+    button { background: #111827; color: #fff; font-weight: 600; margin-top: 16px; cursor: pointer; }
+    button:hover { background: #374151; }
+    .contract-item { border-top: 1px solid #e5e7eb; padding: 12px 0; }
+    .contract-item:first-child { border-top: none; }
+    .badge { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; background: #e5e7eb; }
+    .muted { color: #6b7280; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Contract Management</h1>
+  <p class="muted">Create a contract with a description and view stored contracts. <a href="/swagger-ui.html">Open Swagger UI</a></p>
+
+  <div class="card">
+    <h2>Create Contract</h2>
+    <form id="contractForm">
+      <label for="title">Title (optional)</label>
+      <input type="text" id="title" name="title" placeholder="e.g., Vendor Service Agreement" />
+
+      <label for="contractDescription">Contract Description</label>
+      <textarea id="contractDescription" name="contractDescription" rows="3" placeholder="Enter a brief summary or description of the contract"></textarea>
+
+      <label for="file">Contract File (.pdf or .docx)</label>
+      <input type="file" id="file" name="file" accept=".pdf,.docx" required />
+
+      <button type="submit">Upload & Create Contract</button>
+    </form>
+    <p id="statusMsg" class="muted"></p>
+  </div>
+
+  <div class="card">
+    <h2>Saved Contracts</h2>
+    <div id="contractsList" class="muted">Loading contracts...</div>
+  </div>
+
+  <script>
+    async function loadContracts() {
+      const list = document.getElementById('contractsList');
+      try {
+        const res = await fetch('/api/contracts');
+        const contracts = await res.json();
+        if (!contracts.length) {
+          list.innerHTML = '<p class="muted">No contracts uploaded yet.</p>';
+          return;
+        }
+        list.innerHTML = contracts.map(c => `
+          <div class="contract-item">
+            <strong>#${c.id} — ${c.title}</strong> <span class="badge">${c.status}</span>
+            <p><strong>Contract Description:</strong> ${c.contractDescription || '<em>None provided</em>'}</p>
+            <p class="muted">File: ${c.fileName}</p>
+          </div>
+        `).join('');
+      } catch (err) {
+        list.innerHTML = '<p class="muted">Failed to load contracts.</p>';
+      }
+    }
+
+    document.getElementById('contractForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const statusMsg = document.getElementById('statusMsg');
+      statusMsg.textContent = 'Uploading...';
+      const formData = new FormData(e.target);
+      try {
+        const res = await fetch('/api/contracts', { method: 'POST', body: formData });
+        if (!res.ok) {
+          const err = await res.json();
+          statusMsg.textContent = 'Error: ' + (err.error || res.statusText);
+          return;
+        }
+        e.target.reset();
+        statusMsg.textContent = 'Contract created successfully.';
+        loadContracts();
+      } catch (err) {
+        statusMsg.textContent = 'Upload failed.';
+      }
+    });
+
+    loadContracts();
+  </script>
+</body>
+</html>
