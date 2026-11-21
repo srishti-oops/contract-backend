@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Contracts</title>
+  <title>Contract Management</title>
   <style>
     :root {
       --bg: #fafafa;
@@ -18,7 +18,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
       background: var(--bg);
       color: var(--text);
-      max-width: 680px;
+      max-width: 720px;
       margin: 48px auto;
       padding: 0 20px;
       line-height: 1.5;
@@ -68,15 +68,23 @@
       color: #fff;
       border: none;
       border-radius: 7px;
-      padding: 9px 16px;
-      font-size: 14px;
+      padding: 8px 14px;
+      font-size: 13px;
       font-weight: 500;
       cursor: pointer;
     }
     button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.secondary:hover { background: #f4f4f5; }
     .msg { font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 18px; }
+    .msg.error { color: #b91c1c; }
     .item {
-      padding: 14px 0;
+      padding: 16px 0;
       border-top: 1px solid var(--border);
     }
     .item:first-child { padding-top: 0; border-top: none; }
@@ -86,18 +94,46 @@
       align-items: center;
       gap: 12px;
     }
-    .title { font-weight: 600; font-size: 14px; }
+    .title { font-weight: 600; font-size: 14.5px; }
     .status {
       font-size: 11px;
       font-weight: 600;
-      letter-spacing: 0.03em;
-      padding: 2px 8px;
+      letter-spacing: 0.04em;
+      padding: 3px 9px;
       border-radius: 999px;
       background: #f4f4f5;
       color: #3f3f46;
     }
+    .status.REVIEW { background: #fef3c7; color: #92400e; }
+    .status.APPROVED { background: #dcfce7; color: #166534; }
     .desc { font-size: 13.5px; color: #3f3f46; margin: 6px 0 4px; }
     .meta { font-size: 12px; color: var(--muted); }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .qa-box {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .qa-box input {
+      padding: 7px 10px;
+      font-size: 13px;
+    }
+    .qa-answer {
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 13px;
+      color: #27272a;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -144,6 +180,75 @@
         .replace(/"/g, '"');
     }
 
+    function renderActionButton(c) {
+      if (c.status === 'DRAFT') {
+        return `<button type="button" onclick="advanceStatus(${c.id}, 'REVIEW')">Move to Review</button>`;
+      }
+      if (c.status === 'REVIEW') {
+        return `<button type="button" onclick="advanceStatus(${c.id}, 'APPROVED')">Approve Contract</button>`;
+      }
+      return `<span class="meta">Workflow complete (Approved)</span>`;
+    }
+
+    async function advanceStatus(id, nextStatus) {
+      const statusMsg = document.getElementById(`status-msg-${id}`);
+      if (statusMsg) {
+        statusMsg.className = 'meta';
+        statusMsg.textContent = `Updating to ${nextStatus}...`;
+      }
+      try {
+        const res = await fetch(`/api/contracts/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (statusMsg) {
+            statusMsg.className = 'msg error';
+            statusMsg.textContent = data.error || 'Failed to update status.';
+          }
+          return;
+        }
+        await loadContracts();
+      } catch {
+        if (statusMsg) {
+          statusMsg.className = 'msg error';
+          statusMsg.textContent = 'Network error while updating status.';
+        }
+      }
+    }
+
+    async function askContract(id) {
+      const input = document.getElementById(`qa-input-${id}`);
+      const answerBox = document.getElementById(`qa-answer-${id}`);
+      const question = input.value.trim();
+      if (!question) return;
+
+      answerBox.style.display = 'block';
+      answerBox.textContent = 'Searching contract...';
+
+      try {
+        const res = await fetch(`/api/contracts/${id}/ask`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          answerBox.textContent = data.error || 'Could not answer question.';
+          return;
+        }
+        const excerpts = Array.isArray(data.matchingExcerpts) && data.matchingExcerpts.length
+          ? '\n\nExcerpts:\n• ' + data.matchingExcerpts.join('\n• ')
+          : '';
+        answerBox.style.whiteSpace = 'pre-wrap';
+        answerBox.textContent = (data.answer || 'No answer returned.') + excerpts;
+      } catch {
+        answerBox.textContent = 'Network error.';
+      }
+    }
+
     async function loadContracts() {
       try {
         const res = await fetch('/api/contracts');
@@ -156,10 +261,19 @@
           <div class="item">
             <div class="item-head">
               <span class="title">#${c.id} · ${escapeHtml(c.title)}</span>
-              <span class="status">${escapeHtml(c.status)}</span>
+              <span class="status ${escapeHtml(c.status)}">${escapeHtml(c.status)}</span>
             </div>
             <div class="desc">${c.contractDescription ? escapeHtml(c.contractDescription) : '<span class="meta">No description provided</span>'}</div>
-            <div class="meta">${escapeHtml(c.fileName)}</div>
+            <div class="meta">File: ${escapeHtml(c.fileName)}</div>
+            <div class="actions">
+              ${renderActionButton(c)}
+              <span id="status-msg-${c.id}" class="meta"></span>
+            </div>
+            <div class="qa-box">
+              <input type="text" id="qa-input-${c.id}" placeholder="Ask a question about this contract..." />
+              <button type="button" class="secondary" onclick="askContract(${c.id})">Ask</button>
+            </div>
+            <div id="qa-answer-${c.id}" class="qa-answer"></div>
           </div>
         `).join('');
       } catch {
@@ -169,6 +283,7 @@
 
     formEl.addEventListener('submit', async (e) => {
       e.preventDefault();
+      msgEl.className = 'msg';
       msgEl.textContent = 'Saving...';
       try {
         const res = await fetch('/api/contracts', {
@@ -177,6 +292,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
+          msgEl.className = 'msg error';
           msgEl.textContent = data.error || 'Failed to create contract.';
           return;
         }
@@ -184,6 +300,7 @@
         msgEl.textContent = 'Saved.';
         loadContracts();
       } catch {
+        msgEl.className = 'msg error';
         msgEl.textContent = 'Network error.';
       }
     });
